@@ -1,12 +1,13 @@
 # MacGlass —— macOS 毛玻璃 Typecho 主题
 
-<img width="2879" height="1799" alt="image" src="https://github.com/user-attachments/assets/03269ef5-c67b-4d21-a25d-b57980e3db7e" />
 
 高度模仿 macOS 窗口管理风格的 Typecho 博客主题：**全站只有一扇 Mac 窗口**
 （`position: fixed` 四边等距铺满视口，底部与顶部始终对称），原顶部栏的全部功能
 （导航 / 搜索 / 日夜切换 / 汉堡菜单）都集成在窗口标题栏上；正文面板内滚动、
 侧边栏固定、状态栏内嵌窗口底部，并整合毛玻璃（Glassmorphism）特效与可交互
 控制面板。
+
+<img width="2879" height="1799" alt="image" src="https://github.com/user-attachments/assets/03269ef5-c67b-4d21-a25d-b57980e3db7e" />
 
 > 要求 Typecho 1.1+（推荐 1.2 / 1.3）。所有后台设置在 `header.php` 中做安全
 > 校验（主色正则白名单、URL 协议白名单、枚举白名单），非法输入自动回退默认值，
