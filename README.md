@@ -201,5 +201,5 @@ MacGlass/
 ## 图标与许可
 
 内联 SVG 图标基于 [Feather Icons](https://feathericons.com/)（MIT License）路径数据。
-状态栏署名 `Power by Love_Chengke`（https://blog.hamhave.top）。主题代码可自由
-使用与修改，欢迎在 Typecho 社区分发。
+状态栏署名 `Power by Love_Chengke`（https://blog.hamhave.top）(可自由修改)
+根据GPL-3.0协议开源，欢迎在 Typecho 社区分发。
