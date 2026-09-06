@@ -1,0 +1,2771 @@
+/**
+ * MacGlass —— macOS 毛玻璃主题
+ *
+ * @package Typecho Theme
+ * @author MacGlass Team
+ * @version 1.0.0
+ * @link https://typecho.org
+ * @description macOS 窗口风格 + 毛玻璃（Glassmorphism）特效的 Typecho 主题：
+ *              全站只有一扇 Mac 窗口，顶部栏功能集成在窗口标题栏上，
+ *              正文面板内滚动、侧边栏固定、状态栏内嵌；兼容 IE11 / Chrome 40 优雅降级。
+ */
+
+/* ============================================================================
+ * 目录
+ * ----------------------------------------------------------------------------
+ * 01. Reset 与基础（含 IE11 兼容声明）
+ * 02. 设计变量（CSS Variables，全部带字面量降级值）
+ * 03. 桌面壁纸（纯色 → -ms- 渐变 → 标准渐变 三级降级）
+ * 04. 通用组件（按钮 / 焦点环 / 工具类）
+ * 05. Mac 窗口与标题栏（信号灯 + 品牌 + 导航 + 搜索 + 日夜切换 = 原顶部栏）
+ * 06. 窗口內容区（正文面板内滚动 / 固定侧边栏 / 内嵌状态栏）
+ * 07. 玻璃面板模块（glass-panel / section-head / chip）
+ * 08. 文章卡片流（整卡可点）
+ * 09. 正文排版（post-content）
+ * 10. 侧边栏小部件（固定不随帖子滚动；手机折叠进汉堡菜单）
+ * 11. 归档 / 搜索列表
+ * 12. 评论系统
+ * 13. 悬浮按钮（玻璃开关 / 设置 / 一键回顶）与设置抽屉
+ * 14. 动画系统
+ * 15. 减少动画（prefers-reduced-motion + html.no-motion，WCAG）
+ * 16. 【玻璃效果控制】html.no-glass 总开关
+ * 17. 【低版本兼容】@supports 毛玻璃增强（backdrop-filter）
+ * 18. 【低版本兼容】深色模式字面量兜底（无 CSS 变量的浏览器）
+ * 19. 响应式增强（平板 ≥768px / 桌面 ≥1024px）
+ * ============================================================================
+ */
+
+/* ============================================================================
+ * 01. Reset 与基础
+ * ============================================================================ */
+
+/* 【低版本兼容】IE11 对 HTML5 语义标签默认按行内元素渲染 */
+article, aside, details, figcaption, figure, footer, header, hgroup,
+main, menu, nav, section, summary, time {
+    display: block;
+}
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth; /* 内部滚动面板同样生效；html.no-motion 时被禁用 */
+}
+
+body {
+    min-height: 100vh;
+    overflow: hidden; /* 页面整体不滚动，滚动发生在窗口正文面板内 */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+        Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    color: #1d1d1f;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color .3s ease, color .3s ease;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border: 0;
+}
+
+ul, ol {
+    list-style-position: inside;
+}
+
+button {
+    font-family: inherit;
+    font-size: inherit;
+    background: none;
+    border: none;
+}
+
+input, textarea, select, button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+a {
+    color: #0a84ff;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+::selection {
+    background: rgba(10, 132, 255, .25);
+}
+
+/* 焦点环（键盘导航可达性） */
+:focus {
+    outline: 2px solid #0a84ff;
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+    outline: none;
+}
+input:focus, textarea:focus {
+    outline: none;
+}
+
+/* ------------------------------------------------------------
+ * 大面积链接（整卡 / 胶囊）的焦点环处理：改为内嵌描边，
+ * 避免点击后出现与卡片分离的外框（“文字与框分开”问题）。
+ * ------------------------------------------------------------ */
+.post-card-link:focus,
+.chip:focus,
+.tag-chip:focus,
+.nav-link:focus {
+    outline: none;
+}
+.post-card-link:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px #0a84ff, 0 8px 24px rgba(20, 30, 60, .07);
+    box-shadow: inset 0 0 0 2px var(--primary), var(--panel-shadow);
+}
+html[data-theme="dark"] .post-card-link:focus-visible {
+    box-shadow: inset 0 0 0 2px #0a84ff, 0 8px 24px rgba(0, 0, 0, .25);
+    box-shadow: inset 0 0 0 2px var(--primary), var(--panel-shadow);
+}
+.chip:focus-visible,
+.tag-chip:focus-visible,
+.nav-link:focus-visible {
+    outline: 2px solid #0a84ff;
+    outline: 2px solid var(--primary);
+    outline-offset: -2px; /* 负偏移：焦点环内嵌，贴合胶囊 */
+}
+
+/* 隐藏但保留给读屏器 */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* 滚动条（WebKit 系）：透明轨道 + 细滑块 + 隐藏上下箭头按钮；
+ * 避免出现“一整条白色”的默认经典滚动条 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(120, 120, 128, .38);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* ============================================================================
+ * 02. 设计变量（CSS Variables）
+ * ----------------------------------------------------------------------------
+ * 【低版本兼容】凡用到 var() 的声明，其上一行都提供了字面量降级值。
+ * 【玻璃效果控制】--glass-bg / --glass-bg-strong / --glass-blur 毛玻璃的
+ * 三个核心变量：基础值为「纯色」，仅当浏览器支持 backdrop-filter 时
+ * （第 17 节 @supports 块）才切换为半透明 + 模糊；html.no-glass 类
+ * （第 16 节）将其强制拉回纯色 —— 三处联动，实现「开关玻璃」。
+ * ============================================================================ */
+:root {
+    --primary: #0a84ff;
+
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-tertiary: #98989d;
+
+    --wallpaper: linear-gradient(160deg, #a7c7f2 0%, #cdb6ec 30%, #f2c9b8 55%, #b8e6d2 80%, #9fc2ef 100%);
+
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #f7f7fa;
+    --glass-border: rgba(0, 0, 0, .09);
+    --glass-blur: 0px;
+    --glass-saturate: 100%;
+
+    --window-border: rgba(0, 0, 0, .10);
+    --window-shadow: 0 18px 40px rgba(20, 30, 60, .18), 0 2px 8px rgba(20, 30, 60, .10);
+    --panel-shadow: 0 8px 24px rgba(20, 30, 60, .07);
+    --panel-shadow-hover: 0 16px 40px rgba(20, 30, 60, .14), 0 3px 10px rgba(20, 30, 60, .08);
+    --glass-inset: 0 0 0 0 rgba(0, 0, 0, 0); /* 玻璃内圈高光：第 17 节替换为真实镜面高光 */
+    --panel-radius: 16px;
+
+    --theme-transition: background-color .3s ease, color .3s ease,
+        border-color .3s ease, box-shadow .3s ease;
+}
+
+html[data-theme="dark"] {
+    --text: #f5f5f7;
+    --text-secondary: #a1a1a6;
+    --text-tertiary: #6e6e73;
+
+    --wallpaper: linear-gradient(160deg, #10263f 0%, #2b1a46 30%, #45232e 55%, #123a30 80%, #10263f 100%);
+
+    --glass-bg: #2a2a2c;
+    --glass-bg-strong: #333336;
+    --glass-border: rgba(255, 255, 255, .10);
+
+    --window-border: rgba(255, 255, 255, .14);
+    --window-shadow: 0 18px 44px rgba(0, 0, 0, .50), 0 2px 8px rgba(0, 0, 0, .35);
+    --panel-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+    --panel-shadow-hover: 0 16px 40px rgba(0, 0, 0, .45), 0 3px 10px rgba(0, 0, 0, .3);
+}
+
+body.wallpaper-monterey { --wallpaper: linear-gradient(150deg, #274b9f 0%, #5b4a9e 30%, #a44d8e 60%, #e07a4f 100%); }
+body.wallpaper-sunset    { --wallpaper: linear-gradient(160deg, #ffb56b 0%, #ff7e8a 45%, #b06ab3 100%); }
+html[data-theme="dark"] body.wallpaper-monterey { --wallpaper: linear-gradient(150deg, #0d1f4d 0%, #241a4d 30%, #4d1a3d 60%, #4d2310 100%); }
+html[data-theme="dark"] body.wallpaper-sunset    { --wallpaper: linear-gradient(160deg, #3d2410 0%, #4d1620 45%, #26103d 100%); }
+
+/* ============================================================================
+ * 03. 桌面壁纸
+ * ----------------------------------------------------------------------------
+ * 【低版本兼容】三级降级：纯色 → -ms- 渐变（IE10/11）→ 标准渐变 + 变量。
+ * ============================================================================ */
+body {
+    background-color: #e8ecf4;
+    background-image: -ms-linear-gradient(160deg, #a7c7f2 0%, #cdb6ec 30%, #f2c9b8 55%, #b8e6d2 80%, #9fc2ef 100%);
+    background-image: linear-gradient(160deg, #a7c7f2 0%, #cdb6ec 30%, #f2c9b8 55%, #b8e6d2 80%, #9fc2ef 100%);
+    background-image: var(--wallpaper);
+    background-attachment: fixed;
+    background-position: center;
+    background-size: cover;
+    transition: background-color .3s ease;
+}
+
+html[data-theme="dark"] body {
+    background-color: #1c1c1e;
+    background-image: -ms-linear-gradient(160deg, #10263f 0%, #2b1a46 30%, #45232e 55%, #123a30 80%, #10263f 100%);
+    background-image: var(--wallpaper);
+}
+
+/* ============================================================
+ * 动态极光层：两组彩色光斑在壁纸上方缓慢漂移、缩放，
+ * 透过窗口玻璃（backdrop-filter）形成流动的柔光（“会呼吸的壁纸”）。
+ * z-index: -1 使其垫在壁纸之上、页面内容之下；
+ * html.no-motion / prefers-reduced-motion 时自动静止（第 15 节）。
+ * ============================================================ */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    left: -12%;
+    top: -12%;
+    right: -12%;
+    bottom: -12%;
+    z-index: -1;
+    pointer-events: none;
+    will-change: transform;
+}
+body::before {
+    background:
+        radial-gradient(36% 32% at 66% 30%, rgba(125, 211, 252, .5) 0%, rgba(125, 211, 252, 0) 70%),
+        radial-gradient(30% 28% at 26% 68%, rgba(196, 181, 253, .46) 0%, rgba(196, 181, 253, 0) 70%);
+    animation: mac-drift-a 28s ease-in-out infinite alternate;
+}
+body::after {
+    background:
+        radial-gradient(32% 30% at 38% 22%, rgba(253, 186, 116, .32) 0%, rgba(253, 186, 116, 0) 70%),
+        radial-gradient(28% 26% at 76% 78%, rgba(110, 231, 183, .3) 0%, rgba(110, 231, 183, 0) 70%);
+    animation: mac-drift-b 34s ease-in-out infinite alternate;
+}
+html[data-theme="dark"] body::before {
+    background:
+        radial-gradient(36% 32% at 66% 30%, rgba(88, 101, 242, .38) 0%, rgba(88, 101, 242, 0) 70%),
+        radial-gradient(30% 28% at 26% 68%, rgba(175, 82, 222, .3) 0%, rgba(175, 82, 222, 0) 70%);
+}
+html[data-theme="dark"] body::after {
+    background:
+        radial-gradient(32% 30% at 38% 22%, rgba(255, 149, 0, .16) 0%, rgba(255, 149, 0, 0) 70%),
+        radial-gradient(28% 26% at 76% 78%, rgba(48, 209, 88, .14) 0%, rgba(48, 209, 88, 0) 70%);
+}
+
+/* 动态极光层降耗（性能优化）：
+ * 1) 自定义背景图片（header.php 内联注入）或关闭玻璃时窗口不透明，
+ *    漂移光斑不可见，直接隐藏；
+ * 2) 页面切到后台时（html.page-hidden，main.js 写入）暂停漂移动画，
+ *    避免 backdrop-filter 逐帧无效重采样。
+ * body 本身已有 background-size: cover + fixed，自定义图片直接沿用。 */
+body.wallpaper-custom::before,
+body.wallpaper-custom::after,
+html.no-glass body::before,
+html.no-glass body::after {
+    display: none;
+}
+html.page-hidden body::before,
+html.page-hidden body::after {
+    animation-play-state: paused;
+}
+
+/* ============================================================================
+ * 04. 通用组件
+ * ============================================================================ */
+
+/* 主题切换过渡（0.3s ease）应用到所有玻璃表面 */
+.mac-window,
+.titlebar,
+.drawer,
+.fab,
+.window-status,
+.glass-panel,
+.profile-fixed,
+.segmented,
+.search-input,
+input.text,
+textarea {
+    transition: background-color .3s ease, color .3s ease,
+        border-color .3s ease, box-shadow .3s ease;
+}
+
+/* 按钮（.btn 与 .btn-primary 均为 macOS 风格主按钮，蓝底白字圆角胶囊） */
+.btn,
+.btn-primary {
+    display: inline-block;
+    padding: 7px 18px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.6;
+    text-align: center;
+    cursor: pointer;
+    background: #0a84ff;
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(10, 132, 255, .28);
+    transition: background-color .3s ease, filter .3s ease, box-shadow .3s ease, transform .25s ease;
+}
+.btn-ghost {
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    color: #1d1d1f;
+    color: var(--text);
+    border-color: rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    box-shadow: none;
+}
+
+/* ============================================================================
+ * 05. Mac 窗口与标题栏
+ * ----------------------------------------------------------------------------
+ * 顶部栏功能（导航 / 搜索 / 日夜切换 / 汉堡菜单）全部集成在窗口标题栏上；
+ * 手机端导航与侧边栏小部件折叠进汉堡下拉面板。
+ * ============================================================================ */
+.site-frame {
+    display: block;
+}
+
+/* 唯一 Mac 窗口：fixed 定位，四边等距（8px/20px），
+ * 底部与顶部始终保持一致间距 —— 手机地址栏收起时窗口底部依然贴齐
+ * 视口下缘（不依赖 vh/dvh 计算，兼容所有移动浏览器）。 */
+.mac-window {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    max-width: 1296px;
+    margin: 0 auto; /* 桌面端大屏水平居中 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #ffffff;
+    background: var(--glass-bg);
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 14px; /* 手机端同样保留大圆角 = mac 窗口样式 */
+    box-shadow: 0 18px 40px rgba(20, 30, 60, .18), 0 2px 8px rgba(20, 30, 60, .10);
+    box-shadow: var(--window-shadow);
+}
+
+/* 标题栏（磨砂玻璃材质） */
+.titlebar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 50px;
+    padding: 0 8px;
+    flex: none;
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    border-bottom: 1px solid rgba(0, 0, 0, .09);
+    border-bottom-color: var(--window-border);
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    z-index: 20; /* 保证下拉面板盖住正文 */
+}
+
+/* 标题栏扫光：周期性柔光从左向右掠过（span 由 header/footer 注入，
+ * 自带 overflow: hidden，不影响标题栏内下拉菜单的溢出显示） */
+.titlebar-sheen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+}
+.titlebar-sheen::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: -20%;
+    bottom: -20%;
+    width: 34%;
+    background: linear-gradient(105deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .28) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: translateX(-160%) skewX(-16deg);
+    animation: mac-sheen 7.5s ease-in-out infinite;
+    animation-delay: 1.4s;
+}
+html[data-theme="dark"] .titlebar-sheen::before {
+    background: linear-gradient(105deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .10) 50%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* 信号灯组 */
+.traffic-lights {
+    display: flex;
+    align-items: center;
+    flex: none;
+}
+.traffic-light {
+    position: relative;
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    flex: none;
+    box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .12), inset 0 1px 1px rgba(255, 255, 255, .45), 0 1px 2px rgba(0, 0, 0, .14);
+    transition: filter .15s ease, opacity .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.traffic-light:active {
+    transform: scale(.86);
+}
+.traffic-light + .traffic-light {
+    margin-left: 7px;
+}
+a.traffic-light {
+    text-decoration: none;
+}
+.tl-close    { background-color: #ff5f57; }
+.tl-minimize { background-color: #febc2e; }
+.tl-zoom     { background-color: #28c840; }
+
+/* 【触控优化】信号灯视觉只有 11px，用伪元素把点击热区扩大到 44×44px */
+.traffic-light::after {
+    content: "";
+    position: absolute;
+    left: -16px;
+    top: -16px;
+    right: -16px;
+    bottom: -16px;
+}
+
+/* 悬停显示 × / − / + 符号（仅精确指针设备；触屏不显示，防止粘滞） */
+.traffic-light::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    color: rgba(0, 0, 0, .5);
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+    .tl-close::before    { content: "×"; }
+    .tl-minimize::before { content: "−"; }
+    .tl-zoom::before     { content: "+"; font-size: 9px; }
+    .traffic-lights:hover .traffic-light::before { opacity: 1; }
+    .tl-close:hover    { filter: brightness(.92); }
+    .tl-minimize:hover { filter: brightness(.94); }
+    .tl-zoom:hover     { filter: brightness(.94); }
+    /* 悬停信号灯组：灯珠整体泛起微光（更接近真实 macOS 质感） */
+    .traffic-lights:hover .traffic-light {
+        box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .20), inset 0 1px 1px rgba(255, 255, 255, .55), 0 2px 7px rgba(0, 0, 0, .25);
+    }
+}
+
+/* 抽屉里的禁用信号灯（仅视觉展示） */
+.traffic-light.is-disabled {
+    opacity: .35;
+    cursor: default;
+}
+
+/* 抽屉标题栏：信号灯组占固定宽度，保证标题绝对居中（根窗口工具栏不受影响） */
+.drawer .traffic-lights {
+    width: 56px;
+}
+
+/* 标题栏标题（仅抽屉使用；标题文字居中，超长省略） */
+.titlebar-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #6e6e73;
+    color: var(--text-secondary);
+}
+.titlebar-text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.titlebar-side {
+    width: 56px;
+    flex: none;
+}
+
+/* 标题栏 App 图标（渐变圆角方块，纯 CSS 零图片资源） */
+.tb-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    border-radius: 4px;
+    flex: none;
+    font-style: normal;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    color: #ffffff;
+    background-color: #0a84ff; /* 低版本降级纯色 */
+    background-image: linear-gradient(135deg, rgba(255, 255, 255, .35) 0%, rgba(255, 255, 255, 0) 60%);
+    box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .35);
+}
+.tb-doc    { background-color: #0a84ff; }
+.tb-page   { background-color: #34c759; }
+.tb-arch   { background-color: #ff2d55; }
+.tb-cat    { background-color: #ff9500; }
+.tb-tag    { background-color: #af52de; }
+.tb-search { background-color: #8e8e93; }
+.tb-info   { background-color: #5e5ce6; }
+.tb-cmt    { background-color: #ff375f; }
+
+/* ============================================================
+ * 标题栏工具栏（原顶部栏功能集成于此）
+ * 结构：信号灯 + 品牌 | 导航链接 + 搜索（桌面居中） | 日夜切换 + 汉堡
+ * ============================================================ */
+.titlebar.toolbar {
+    height: 52px;
+    padding: 0 10px;
+}
+.titlebar.toolbar .traffic-lights {
+    margin-right: 12px;
+}
+
+/* 品牌（站点名） */
+.nav-brand {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    margin-right: 10px;
+    color: #1d1d1f;
+    color: var(--text);
+    text-decoration: none;
+}
+.brand-logo {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    border-radius: 7px;
+    background-color: #0a84ff;
+    background-image: linear-gradient(150deg, #7dd3fc 0%, #0a84ff 55%, #2563eb 100%);
+    box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .45), 0 2px 6px rgba(10, 132, 255, .35);
+    flex: none;
+}
+/* 品牌 Logo：设置了个人头像后与头像保持一致
+ * （header.php 内联注入 background-image，覆盖上面的渐变） */
+.brand-logo.has-logo {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .45), 0 1px 4px rgba(0, 0, 0, .16);
+}
+.brand-name {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+/* 导航链接：手机端为窗口内下拉面板（带滑出动画），≥768px 转为标题栏内联菜单 */
+.nav-links {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 8px 12px 16px;
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    border-bottom: 1px solid rgba(0, 0, 0, .09);
+    border-bottom-color: var(--window-border);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .18);
+    max-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    overflow: hidden;
+    border-radius: 0 0 14px 14px; /* 菜单底部圆角，与窗口圆角一致（手机汉堡面板） */
+    transition: max-height .35s ease, opacity .3s ease, transform .3s ease,
+        visibility .35s ease;
+}
+html.nav-open .nav-links {
+    max-height: calc(100vh - 80px);
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+/* 菜单展开后，各项错峰淡入上浮（提升可阅读性） */
+html.nav-open .nav-links > * {
+    animation: mac-fade-up .32s ease both;
+}
+html.nav-open .nav-links > *:nth-child(1) { animation-delay: .02s; }
+html.nav-open .nav-links > *:nth-child(2) { animation-delay: .05s; }
+html.nav-open .nav-links > *:nth-child(3) { animation-delay: .08s; }
+html.nav-open .nav-links > *:nth-child(4) { animation-delay: .11s; }
+html.nav-open .nav-links > *:nth-child(5) { animation-delay: .14s; }
+html.nav-open .nav-links > *:nth-child(n+6) { animation-delay: .17s; }
+.nav-link {
+    display: block;
+    min-height: 44px;
+    line-height: 44px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #1d1d1f;
+    color: var(--text);
+    text-decoration: none;
+}
+.nav-link.is-active {
+    color: #0a84ff;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* 【手机折叠】导航面板中的小部件区（桌面隐藏） */
+.nav-modules {
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, .08);
+    border-top-color: var(--window-border);
+}
+.nav-modules .side-card {
+    margin-bottom: 16px;
+    padding: 16px;
+}
+
+/* ============================================================
+ * 标题栏下拉菜单（桌面版）：分类 / 归档 集成在窗口栏上
+ * 超过 3 条时显示「显示更多」，跳转到 page-archive.php 归档页
+ * ============================================================ */
+.tb-dd {
+    position: relative;
+    display: none; /* 手机隐藏（分类/归档在汉堡菜单里），≥768px 显示 */
+}
+.tb-dd-btn {
+    display: inline-flex;
+    align-items: center;
+}
+.dd-chevron {
+    margin-left: 4px;
+    transition: transform .3s ease;
+}
+.tb-dd.is-open .dd-chevron {
+    transform: rotate(180deg);
+}
+.tb-dd-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 70;
+    display: none;
+    min-width: 208px;
+    padding: 8px;
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .18);
+    box-shadow: var(--glass-inset), 0 18px 40px rgba(0, 0, 0, .18);
+    transform-origin: top left;
+}
+.tb-dd.is-open .tb-dd-menu {
+    display: block;
+    animation: mac-dd-pop .24s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+.dd-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    color: #1d1d1f;
+    color: var(--text);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color .2s ease, color .2s ease;
+}
+.dd-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dd-item .count {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.dd-more {
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 0, 0, .08);
+    border-top-color: var(--window-border);
+    color: #0a84ff;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* ============================================================
+ * 手机版：站点简介放在主栏头部（≥1024px 桌面版隐藏，
+ * 桌面端简介在固定侧边栏中）
+ * ============================================================ */
+.mobile-intro {
+    display: block;
+}
+.mobile-intro .side-card {
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.nav-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    flex: none;
+}
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    color: #1d1d1f;
+    color: var(--text);
+    cursor: pointer;
+    transition: background-color .3s ease, transform .2s ease;
+}
+.nav-toggle {
+    position: relative;
+}
+.nav-toggle svg {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin: -10px 0 0 -10px;
+    transition: transform .3s ease, opacity .3s ease;
+}
+/* 汉堡 ↔ X 切换动画 */
+.icon-x {
+    opacity: 0;
+    transform: rotate(-90deg) scale(.6);
+}
+html.nav-open .nav-toggle .icon-burger {
+    opacity: 0;
+    transform: rotate(90deg) scale(.6);
+}
+html.nav-open .nav-toggle .icon-x {
+    opacity: 1;
+    transform: none;
+}
+
+/* 日夜切换图标：浅色模式显示月亮（点击进入深色），深色模式显示太阳。
+ * display 切换会重新触发 mac-spin-in 旋转入场动画。 */
+.icon-sun {
+    display: none;
+}
+.icon-moon {
+    animation: mac-spin-in .5s cubic-bezier(.2, .9, .3, 1.3);
+}
+html[data-theme="dark"] .icon-sun {
+    display: block;
+    animation: mac-spin-in .5s cubic-bezier(.2, .9, .3, 1.3);
+}
+html[data-theme="dark"] .icon-moon {
+    display: none;
+}
+
+/* 搜索框 */
+.search-form {
+    position: relative;
+}
+.search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    margin-top: -9px;
+    color: #98989d;
+    color: var(--text-tertiary);
+    pointer-events: none;
+}
+.search-input {
+    display: block;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px 0 36px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 10px;
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    color: #1d1d1f;
+    color: var(--text);
+    font-size: 14px;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+}
+.search-input:focus {
+    border-color: #0a84ff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, .18);
+}
+
+/* ============================================================
+ * 固定个人小简介（页面右上角，不随页面滚动）
+ * 内容来自后台外观设置：profileAvatar / profileName / profileIntro；
+ * 移动端（<1024px）与阅读模式自动隐藏；点击 × 可关闭（记忆在 localStorage）。
+ * ============================================================ */
+.profile-fixed {
+    position: fixed;
+    top: 88px;
+    right: 22px;
+    z-index: 880;
+    display: none; /* 移动端默认隐藏，≥1024px 桌面端显示（第 19 节） */
+    width: 236px;
+    padding: 16px 16px 14px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 16px;
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    box-shadow: 0 18px 40px rgba(20, 30, 60, .18), 0 2px 8px rgba(20, 30, 60, .10);
+    box-shadow: var(--window-shadow);
+}
+html.profile-hidden .profile-fixed {
+    display: none;
+}
+.profile-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+    line-height: 1;
+    color: #98989d;
+    color: var(--text-tertiary);
+    cursor: pointer;
+}
+.profile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #0a84ff;
+    background-image: linear-gradient(135deg, #7dd3fc 0%, #0a84ff 60%, #2563eb 100%);
+    color: #ffffff;
+    font-size: 19px;
+    font-weight: 700;
+    box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .4);
+}
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+.profile-name {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.profile-intro {
+    max-height: 63px;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    word-break: break-all;
+    word-wrap: break-word;
+}
+
+/* ============================================================================
+ * 06. 窗口内容区
+ * ----------------------------------------------------------------------------
+ * 布局：正文面板（可滚动）| 固定侧边栏（不随帖子滚动）| 内嵌状态栏。
+ * 【低版本兼容】基础布局使用 flexbox（IE10+ / Chrome 40 支持）。
+ * ============================================================================ */
+.window-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    padding: 0;
+}
+.window-grid {
+    display: flex;
+    width: 100%;
+    min-height: 0;
+}
+
+/* 正文面板：只有这里上下滚动（帖子流）
+ * scrollbar-width/color 针对 Firefox：细滚动条 + 透明轨道（消除白色整条背景） */
+.content-area {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 18px 22px 30px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(120, 120, 128, .45) transparent;
+}
+
+/* 固定侧边栏：小部件固定不动，手机端折叠进汉堡菜单（第 19 节隐藏） */
+.sidebar {
+    flex: 0 0 280px;
+    min-width: 0;
+    display: none; /* <1024px 隐藏（折叠在菜单栏） */
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 22px 22px 26px 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 内嵌状态栏（原页脚，嵌在窗口底部，衔接自然） */
+.window-status {
+    flex: none;
+    padding: 9px 14px;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    border-top: 1px solid rgba(0, 0, 0, .09);
+    border-top-color: var(--window-border);
+}
+.window-status a {
+    color: #0a84ff;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+/* 阅读模式（绿灯）：隐藏侧边栏 / 简介 / 悬浮按钮，聚焦正文 */
+body.reading-mode .sidebar,
+body.reading-mode .fab,
+body.reading-mode .drawer,
+body.reading-mode .drawer-backdrop,
+body.reading-mode .profile-fixed {
+    display: none !important;
+}
+body.reading-mode .mac-window {
+    max-width: 900px; /* 阅读模式：窗口收窄，左右 margin auto 居中 */
+}
+
+/* ============================================================================
+ * 07. 玻璃面板模块（窗口内的通用容器）
+ * ============================================================================ */
+
+/* 玻璃面板：注意此处不设 position，避免覆盖 .profile-fixed 的 fixed 定位 */
+.glass-panel {
+    margin-bottom: 28px;
+    padding: 22px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 16px;
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    box-shadow: 0 8px 24px rgba(20, 30, 60, .07);
+    box-shadow: var(--panel-shadow);
+}
+
+/* 模块标题区：左侧标题 + 右侧英文小字 */
+.section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+.section-head h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.section-head span {
+    font-size: 11.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.section-head.compact h2 {
+    font-size: 16px;
+}
+
+/* 分类 / 标签 chip 胶囊 */
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: -5px;
+}
+.chip {
+    display: inline-flex;
+    align-items: center;
+    margin: 5px;
+    padding: 6px 14px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 999px;
+    background: #ffffff;
+    background: var(--glass-bg);
+    font-size: 13px;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: background-color .3s ease, color .3s ease, border-color .3s ease, transform .25s ease, box-shadow .25s ease;
+}
+.chip .count {
+    margin-left: 6px;
+    font-size: 11px;
+    opacity: .75;
+}
+.chip.is-active {
+    background: #0a84ff;
+    background: var(--primary);
+    border-color: #0a84ff;
+    border-color: var(--primary);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* 分页 */
+.pagination-wrap {
+    margin-top: 8px;
+}
+.page-navigator {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.page-navigator li {
+    margin: 3px;
+    list-style: none;
+}
+.page-navigator a,
+.page-navigator .current {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 14px;
+    text-decoration: none;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    transition: background-color .3s ease, color .3s ease, border-color .3s ease, transform .25s ease;
+}
+.page-navigator .current {
+    background: #0a84ff;
+    background: var(--primary);
+    color: #ffffff;
+    font-weight: 600;
+}
+/* 当前页内部若为 <a>（Typecho 部分版本输出 <li class="current"><a>），
+ * 需去掉内层胶囊，避免“双层蓝色圆重叠”的分页显示异常 */
+.page-navigator .current a {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    color: inherit;
+}
+.page-navigator .prev a,
+.page-navigator .next a {
+    color: #1d1d1f;
+    color: var(--text);
+}
+
+/* 空状态 / 404 */
+.empty-state {
+    padding: 44px 20px;
+    text-align: center;
+    color: #6e6e73;
+    color: var(--text-secondary);
+}
+.empty-state p {
+    margin-bottom: 12px;
+}
+.error-code {
+    margin-bottom: 8px;
+    font-size: 72px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: .02em;
+    color: #1d1d1f;
+    background: linear-gradient(135deg, #0a84ff, #5ac8fa);
+    background: linear-gradient(135deg, var(--primary), #5ac8fa);
+    background-size: 220% 220%;
+    animation: mac-gradient-shift 7s ease infinite; /* 渐变色缓慢流动 */
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ============================================================================
+ * 08. 文章卡片流（整卡可点：标题即入口，无“阅读全文”按钮）
+ * ============================================================================ */
+.post-card {
+    position: relative;
+    margin-bottom: 28px;
+    transition: transform .45s cubic-bezier(.34, 1.56, .64, 1); /* 弹簧缓动 */
+}
+.post-card-link {
+    position: relative;
+    overflow: hidden; /* 扫光伪元素裁剪在卡片圆角内 */
+    display: block;
+    padding: 24px 26px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 16px;
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    box-shadow: 0 8px 24px rgba(20, 30, 60, .07);
+    box-shadow: var(--panel-shadow);
+    color: #1d1d1f;
+    color: var(--text);
+    text-decoration: none;
+    transition: background-color .3s ease, color .3s ease,
+        border-color .3s ease, box-shadow .3s ease;
+}
+.meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.meta-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border: 1px solid rgba(10, 132, 255, .22);
+    border-radius: 999px;
+    font-size: 12px;
+    color: #0a84ff;
+    color: var(--primary);
+    background: rgba(10, 132, 255, .10);
+}
+.meta-time {
+    font-size: 12.5px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.post-card-title {
+    margin-bottom: 10px;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: #1d1d1f;
+    color: var(--text);
+    transition: color .3s ease;
+}
+.post-card-excerpt {
+    font-size: 14.5px;
+    line-height: 1.8;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    word-wrap: break-word;
+}
+.post-card-excerpt p {
+    margin-bottom: .5em;
+}
+.post-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(0, 0, 0, .10);
+    border-top-color: var(--window-border);
+    font-size: 12.5px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.card-arrow {
+    display: inline-block;
+    font-size: 15px;
+    color: #0a84ff;
+    color: var(--primary);
+    transition: transform .3s ease;
+}
+
+/* 卡片扫光：悬停时一道柔光从左向右掠过（transform 动画，走合成器不触发布局） */
+.post-card-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 45%;
+    background: linear-gradient(105deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .5) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: translateX(-180%) skewX(-18deg);
+    pointer-events: none;
+    transition: transform .7s ease;
+}
+html[data-theme="dark"] .post-card-link::after {
+    background: linear-gradient(105deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .13) 50%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* 单篇文章 / 独立页面面板 */
+.post-title {
+    margin-bottom: 12px;
+    font-size: 23px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 18px;
+    font-size: 13px;
+    color: #6e6e73;
+    color: var(--text-secondary);
+}
+.post-meta a {
+    color: #6e6e73;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+.meta-dot {
+    margin: 0 6px;
+    color: #c7c7cc;
+}
+
+/* ============================================================================
+ * 09. 正文排版（post-content）
+ * ============================================================================ */
+.post-content {
+    font-size: 15.5px;
+    line-height: 1.85;
+    color: #1d1d1f;
+    color: var(--text);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+.post-content p {
+    margin-bottom: 1em;
+}
+.post-content h1, .post-content h2, .post-content h3,
+.post-content h4, .post-content h5, .post-content h6 {
+    margin: 1.4em 0 .6em;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.post-content h1 { font-size: 1.7em; }
+.post-content h2 { font-size: 1.45em; }
+.post-content h3 { font-size: 1.2em; }
+.post-content h4 { font-size: 1.05em; }
+.post-content a {
+    color: #0a84ff;
+    color: var(--primary);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(10, 132, 255, .35);
+}
+.post-content img {
+    border-radius: 10px;
+}
+.post-content ul, .post-content ol {
+    margin: 0 0 1em;
+    padding-left: 1.6em;
+}
+.post-content blockquote {
+    margin: 1em 0;
+    padding: 10px 16px;
+    border-left: 3px solid #0a84ff;
+    border-left-color: var(--primary);
+    border-radius: 0 10px 10px 0;
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    color: #6e6e73;
+    color: var(--text-secondary);
+}
+.post-content blockquote p {
+    margin-bottom: .4em;
+}
+.post-content code {
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: .88em;
+    background: rgba(0, 0, 0, .06);
+    color: #d6336c;
+}
+html[data-theme="dark"] .post-content code {
+    background: rgba(255, 255, 255, .12);
+    color: #ff9fbf;
+}
+.post-content pre {
+    margin: 1em 0;
+    padding: 14px 16px;
+    border-radius: 10px;
+    overflow: auto;
+    background: #1c1c20;
+    color: #e8e8ec;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    -webkit-overflow-scrolling: touch;
+}
+.post-content pre code {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: inherit;
+}
+.post-content table {
+    width: 100%;
+    margin: 1em 0;
+    border-collapse: collapse;
+}
+.post-content th,
+.post-content td {
+    padding: 8px 10px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    text-align: left;
+}
+.post-content th {
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+}
+.post-content hr {
+    margin: 1.6em 0;
+    border: none;
+    border-top: 1px solid rgba(0, 0, 0, .10);
+    border-top-color: var(--window-border);
+}
+.post-content iframe,
+.post-content video,
+.post-content audio {
+    max-width: 100%;
+}
+
+/* 标签与上一篇/下一篇 */
+.post-tags {
+    margin: 22px 0 4px;
+}
+.post-tags a {
+    display: inline-block;
+    margin: 0 8px 8px 0;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    text-decoration: none;
+}
+.no-tags {
+    font-size: 13px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.post-near {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px dashed rgba(0, 0, 0, .10);
+    border-top-color: var(--window-border);
+    font-size: 13.5px;
+}
+.near-item {
+    padding: 4px 0;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.near-item a {
+    color: #1d1d1f;
+    color: var(--text);
+    text-decoration: none;
+}
+.near-label {
+    margin-right: 6px;
+    font-size: 12px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.near-next {
+    text-align: right;
+}
+
+/* ============================================================================
+ * 10. 侧边栏小部件（固定不随帖子滚动；手机折叠进汉堡菜单）
+ * ============================================================================ */
+.side-card {
+    padding: 22px;
+}
+/* 关于我（About）卡片：头像居中置顶 + 昵称 + 个人介绍。
+ * 内容来自「设置外观 → 个人简介」（profileAvatar / profileName / profileIntro）。 */
+.about-card {
+    text-align: center;
+}
+.about-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    margin: 2px auto 14px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #0a84ff;
+    background-image: linear-gradient(135deg, #7dd3fc 0%, #0a84ff 60%, #2563eb 100%);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .55), 0 6px 18px rgba(10, 132, 255, .30);
+    transition: transform .3s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+    .about-card:hover .about-avatar {
+        transform: scale(1.05);
+    }
+}
+.about-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+.about-avatar span {
+    color: #ffffff;
+    font-size: 30px;
+    font-weight: 700;
+}
+.about-name {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.about-intro {
+    font-size: 13.5px;
+    line-height: 1.8;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    word-wrap: break-word;
+}
+
+.widget-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.widget-list li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px dashed rgba(0, 0, 0, .08);
+    border-bottom-color: var(--window-border);
+    font-size: 14px;
+}
+.widget-list li:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.widget-list a {
+    flex: 1;
+    min-width: 0;
+    margin-right: 10px;
+    color: #1d1d1f;
+    color: var(--text);
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.widget-list time {
+    flex: none;
+    font-size: 12px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+
+.tag-cloud {
+    margin: -2px;
+}
+.tag-chip {
+    display: inline-block;
+    margin: 2px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    text-decoration: none;
+    transition: background-color .3s ease, color .3s ease, border-color .3s ease, transform .25s ease;
+}
+.tag-chip .count {
+    margin-left: 3px;
+    font-size: 11px;
+    opacity: .7;
+}
+
+/* ============================================================================
+ * 11. 归档 / 搜索列表
+ * ============================================================================ */
+.archive-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.archive-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    padding: 11px 0;
+    border-bottom: 1px dashed rgba(0, 0, 0, .08);
+    border-bottom-color: var(--window-border);
+    font-size: 14px;
+}
+.archive-item:last-child {
+    border-bottom: none;
+}
+.archive-date {
+    flex: none;
+    width: 84px;
+    font-size: 12.5px;
+    color: #98989d;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+.archive-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+    color: #1d1d1f;
+    color: var(--text);
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.archive-meta {
+    flex: none;
+    margin-left: 12px;
+    font-size: 12px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+
+/* ============================================================================
+ * 12. 评论系统
+ * ============================================================================ */
+.comment-list,
+.comment-children {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.comment-item {
+    padding: 15px 0;
+    border-bottom: 1px dashed rgba(0, 0, 0, .08);
+    border-bottom-color: var(--window-border);
+}
+.comment-item:last-child {
+    border-bottom: none;
+}
+.comment-children {
+    margin: 14px 0 0 14px;
+    padding-left: 14px;
+    border-left: 1px solid rgba(0, 0, 0, .10);
+    border-left-color: var(--window-border);
+}
+.comment-body {
+    display: flex;
+    flex-wrap: wrap; /* 加固：任何被塞进评论体的元素（如回复表单）换行占满整宽，杜绝两列错乱 */
+}
+.comment-avatar {
+    flex: none;
+    width: 44px;
+    margin-right: 12px;
+}
+.comment-avatar img {
+    display: block;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+}
+/* 评论头像统一：博主使用主题设置的头像链接（.comment-avatar img 样式已覆盖），
+ * 未设置头像的博主与游客显示「名字首字」渐变圆形 */
+.comment-avatar .comment-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    background-color: #0a84ff;
+    background-image: linear-gradient(135deg, #7dd3fc 0%, #0a84ff 60%, #2563eb 100%);
+    box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .4);
+}
+.owner-badge {
+    display: block;
+    margin-top: 3px;
+    padding: 0 4px;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 10px;
+    color: #ffffff;
+    background: #0a84ff;
+    background: var(--primary);
+}
+.comment-main {
+    flex: 1;
+    min-width: 0;
+}
+.comment-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+.comment-author {
+    margin-right: 10px;
+    min-width: 0;
+    max-width: 62%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.comment-author a {
+    color: inherit;
+    text-decoration: none;
+}
+.comment-item.comment-by-author .comment-author {
+    color: #0a84ff;
+    color: var(--primary);
+}
+.comment-time {
+    font-size: 12px;
+    color: #98989d;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    white-space: nowrap; /* 日期单行显示，避免窄屏下逐词换行 */
+}
+.comment-content {
+    font-size: 14px;
+    line-height: 1.75;
+    color: #1d1d1f;
+    color: var(--text);
+    word-wrap: break-word;
+}
+.comment-content p {
+    margin-bottom: .6em;
+}
+.comment-content img {
+    max-width: 100%;
+    border-radius: 8px;
+}
+.comment-foot {
+    margin-top: 6px;
+}
+.comment-foot a {
+    font-size: 12.5px;
+    color: #98989d;
+    color: var(--text-tertiary);
+    text-decoration: none;
+}
+
+/* 评论表单 */
+.respond {
+    margin-top: 26px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(0, 0, 0, .10);
+    border-top-color: var(--window-border);
+}
+/* 就地回复：表单被移入某条评论后，保持整宽块级堆叠在评论内容下方
+ * （flex-basis: 100% 兜底：即使被塞进 flex 容器也强制占满一行） */
+.comment-item > .respond,
+.comment-children .respond {
+    margin: 14px 0 4px;
+    max-width: 100%;
+    flex-basis: 100%;
+}
+.cancel-comment-reply {
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+.cancel-comment-reply a {
+    color: #0a84ff;
+    color: var(--primary);
+    text-decoration: none;
+}
+.respond-title {
+    margin-bottom: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.respond-note {
+    font-size: 12px;
+    font-weight: 400;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.respond-logged {
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #6e6e73;
+    color: var(--text-secondary);
+}
+.respond-grid {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -6px;
+}
+.respond-field {
+    flex: 1 1 200px;
+    padding: 0 6px;
+    margin-bottom: 12px;
+}
+.respond-field label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12.5px;
+    color: #6e6e73;
+    color: var(--text-secondary);
+}
+input.text,
+textarea {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 10px;
+    background: #ffffff;
+    background: var(--glass-bg-strong);
+    color: #1d1d1f;
+    color: var(--text);
+    font-size: 14px;
+    -webkit-appearance: none;
+    appearance: none;
+}
+input.text:focus,
+textarea:focus {
+    border-color: #0a84ff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, .18);
+}
+textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+.respond-textarea {
+    margin-bottom: 14px;
+}
+.respond-submit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.respond-tip {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.respond-closed {
+    font-size: 14px;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+
+/* ============================================================================
+ * 13. 悬浮按钮与设置抽屉
+ * ============================================================================ */
+
+/* 右下角悬浮按钮（一键回顶 / 玻璃开关 / 设置抽屉）
+ * right = 窗口内边距(8/20px) + 14px：按钮完全进入窗口内侧，
+ * 不再与窗口边框重叠；bottom 起点 54px 高于内嵌状态栏 */
+.fab {
+    position: fixed;
+    right: 22px;
+    z-index: 910;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 50%;
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    color: #1d1d1f;
+    color: var(--text);
+    cursor: pointer;
+    box-shadow: 0 18px 40px rgba(20, 30, 60, .18), 0 2px 8px rgba(20, 30, 60, .10);
+    box-shadow: var(--window-shadow);
+    transition: background-color .3s ease, color .3s ease, transform .3s ease,
+        box-shadow .3s ease, opacity .3s ease, visibility .3s ease;
+}
+.fab:active {
+    transform: scale(.94);
+}
+/* 水滴涟漪：点击玻璃开关时扩散的波纹（.ripple 由 main.js 短暂添加） */
+.fab.ripple::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    background: rgba(10, 132, 255, .30);
+    pointer-events: none;
+    animation: mac-ripple .6s ease-out forwards;
+}
+html[data-theme="dark"] .fab.ripple::after {
+    background: rgba(90, 200, 250, .35);
+}
+#glass-toggle {
+    bottom: 118px;
+}
+#settings-gear {
+    bottom: 54px;
+}
+/* 一键回顶：默认隐藏，滚动超过 300px 后淡入 */
+#backtop {
+    bottom: 182px;
+    opacity: 0;
+    visibility: hidden;
+}
+#backtop.is-visible {
+    opacity: 1;
+    visibility: visible;
+    animation: mac-bounce-in .5s ease; /* 出现时轻微弹跳（不 fill，结束即释放 transform） */
+}
+.icon-gear {
+    transition: transform .3s ease;
+}
+html.drawer-open #settings-gear .icon-gear {
+    transform: rotate(75deg);
+}
+
+/* 【玻璃效果控制】玻璃关闭时，水滴按钮半透明提示状态 */
+html.no-glass #glass-toggle {
+    opacity: .75;
+}
+html.no-glass #glass-toggle .icon-drop {
+    opacity: .4;
+}
+
+/* 抽屉遮罩 */
+.drawer-backdrop {
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 920;
+    background: rgba(0, 0, 0, .28);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .3s ease, visibility .3s ease;
+}
+html.drawer-open .drawer-backdrop {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 设置抽屉（右侧滑入的 Mac 面板） */
+.drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 930;
+    display: flex;
+    flex-direction: column;
+    width: 320px;
+    max-width: 88vw;
+    background: #f7f7fa;
+    background: var(--glass-bg-strong);
+    border-left: 1px solid rgba(0, 0, 0, .10);
+    border-left-color: var(--window-border);
+    box-shadow: -20px 0 60px rgba(0, 0, 0, .25);
+    transform: translateX(105%);
+    transition: transform .45s cubic-bezier(.32, .72, .24, 1); /* 弹簧滑入 */
+}
+html.drawer-open .drawer {
+    transform: none;
+}
+/* 抽屉展开：各设置组错峰淡入上浮 */
+html.drawer-open .setting-group {
+    animation: mac-fade-up .4s ease both;
+}
+html.drawer-open .setting-group:nth-child(1) { animation-delay: .05s; }
+html.drawer-open .setting-group:nth-child(2) { animation-delay: .10s; }
+html.drawer-open .setting-group:nth-child(3) { animation-delay: .15s; }
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 18px 24px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.setting-group {
+    margin-bottom: 26px;
+}
+.setting-title {
+    margin-bottom: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #98989d;
+    color: var(--text-tertiary);
+}
+.setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 56px;
+    padding: 8px 0;
+}
+.setting-info {
+    min-width: 0;
+    margin-right: 12px;
+}
+.setting-name {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d1d1f;
+    color: var(--text);
+}
+.setting-desc {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #6e6e73;
+    color: var(--text-secondary);
+}
+
+/* 分段选择器（浅色 / 深色 / 跟随系统） */
+.segmented {
+    display: flex;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, .10);
+    border-color: var(--window-border);
+    border-radius: 12px;
+    background: #ffffff;
+    background: var(--glass-bg);
+}
+.seg-btn {
+    flex: 1;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13.5px;
+    color: #6e6e73;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.seg-btn + .seg-btn {
+    border-left: 1px solid rgba(0, 0, 0, .10);
+    border-left-color: var(--window-border);
+}
+.seg-btn.is-active {
+    background: #0a84ff;
+    background: var(--primary);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* macOS / iOS 风格开关（输入框覆盖整个热区 ≥44px，触控友好）
+ * 注意：knob 使用显式 top/left 定位（58px 容器内：轨道居中 5px 起，
+ * knob 左 8px = 轨道内 3px；顶部 11px = (44-22)/2），
+ * 不依赖 flex 静态位置，杜绝各浏览器“滑块跑出轨道 / 状态显示不一”。 */
+.switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 58px;
+    height: 44px;
+    cursor: pointer;
+}
+.switch input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+.switch .track {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    background: #d1d1d6;
+    box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .08);
+    transition: background-color .3s ease;
+}
+.switch .knob {
+    position: absolute;
+    left: 8px;
+    top: 11px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .25);
+    pointer-events: none;
+    transition: transform .3s ease;
+}
+.switch input:checked + .track {
+    background: #34c759;
+}
+/* 深色模式：勾选态绿色（需高于第 18 节同特异性字面量规则，否则深色下不显示绿色） */
+html[data-theme="dark"] .switch input:checked + .track {
+    background: #34c759;
+}
+.switch input:checked ~ .knob {
+    transform: translateX(20px);
+}
+.switch input:focus + .track {
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, .3);
+}
+/* 豁免：即使开启“减少动画”，开关滑块/轨道仍保留微动效，
+ * 保证状态切换有明确反馈（极小红移，不影响无障碍主体） */
+html.no-motion .switch .knob,
+html.no-motion .switch .track {
+    transition: transform .3s ease, background-color .3s ease !important;
+}
+
+/* ============================================================================
+ * 14. 动画系统
+ * ============================================================================ */
+@keyframes mac-fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 动态极光壁纸：两组光斑缓慢漂移、缩放（alternate 往复） */
+@keyframes mac-drift-a {
+    from { transform: translate3d(-2%, -1%, 0) scale(1); }
+    to   { transform: translate3d(3%, 2%, 0) scale(1.1); }
+}
+@keyframes mac-drift-b {
+    from { transform: translate3d(2%, 2%, 0) scale(1.08); }
+    to   { transform: translate3d(-3%, -2%, 0) scale(1); }
+}
+
+/* 标题栏扫光：从左向右掠过，之后停顿再循环 */
+@keyframes mac-sheen {
+    0%   { transform: translateX(-160%) skewX(-16deg); }
+    55%  { transform: translateX(420%) skewX(-16deg); }
+    100% { transform: translateX(420%) skewX(-16deg); }
+}
+
+/* 标题栏下拉菜单弹出：顶部原点缩放 + 上浮 */
+@keyframes mac-dd-pop {
+    from { opacity: 0; transform: translateY(-6px) scale(.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 日夜图标旋转入场（display 切换会重触发） */
+@keyframes mac-spin-in {
+    from { opacity: 0; transform: rotate(-90deg) scale(.5); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* 回顶按钮弹跳入场 */
+@keyframes mac-bounce-in {
+    0%   { transform: translateY(16px) scale(.8); }
+    60%  { transform: translateY(-3px) scale(1.05); }
+    100% { transform: none; }
+}
+
+/* 水滴涟漪扩散 */
+@keyframes mac-ripple {
+    from { transform: scale(.5); opacity: .9; }
+    to   { transform: scale(3.6); opacity: 0; }
+}
+
+/* 404 数字渐变色流动 */
+@keyframes mac-gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+}
+
+/* 窗口载入淡入上浮 */
+.mac-window {
+    animation: mac-fade-up .45s cubic-bezier(.2, .7, .3, 1) both;
+}
+
+/* 正文面板与侧边栏内模块依次淡入上浮（stagger 错峰）。
+ * 带 .reveal 的元素改走下方「滚动浮现」机制，此处跳过以免冲突。 */
+.content-area > *:not(.reveal),
+.sidebar > *:not(.reveal) {
+    animation: mac-fade-up .45s cubic-bezier(.2, .7, .3, 1) both;
+}
+.content-area > *:not(.reveal):nth-child(1), .sidebar > *:not(.reveal):nth-child(1) { animation-delay: .03s; }
+.content-area > *:not(.reveal):nth-child(2), .sidebar > *:not(.reveal):nth-child(2) { animation-delay: .08s; }
+.content-area > *:not(.reveal):nth-child(3), .sidebar > *:not(.reveal):nth-child(3) { animation-delay: .13s; }
+.content-area > *:not(.reveal):nth-child(4), .sidebar > *:not(.reveal):nth-child(4) { animation-delay: .18s; }
+.content-area > *:not(.reveal):nth-child(5), .sidebar > *:not(.reveal):nth-child(5) { animation-delay: .23s; }
+.content-area > *:not(.reveal):nth-child(n+6), .sidebar > *:not(.reveal):nth-child(n+6) { animation-delay: .28s; }
+
+/* 滚动浮现：html.js-anim 由 main.js 启动时添加（无 JS 时内容始终可见）。
+ * 元素进入视口后 main.js 添加 .is-visible，触发上浮淡入；
+ * IntersectionObserver 不可用（IE11 / Chrome 40）时 main.js 直接全部显示。
+ * transition 同时保留主题配色过渡，避免替换掉玻璃面板的换色动画。 */
+html.js-anim .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .55s ease, transform .55s cubic-bezier(.22, 1, .36, 1),
+        background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease;
+}
+html.js-anim .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+}
+
+/* 鼠标悬停：文章卡片轻微上浮（仅精确指针设备；触屏禁用防粘滞） */
+@media (hover: hover) and (pointer: fine) {
+    .post-card.lift:hover {
+        transform: translateY(-4px) scale(1.004);
+    }
+    .post-card.lift:hover .post-card-link {
+        box-shadow: 0 16px 40px rgba(20, 30, 60, .14), 0 3px 10px rgba(20, 30, 60, .08);
+        box-shadow: var(--panel-shadow-hover);
+        border-color: rgba(10, 132, 255, .35); /* 柔和半透明，避免“框与文字分离”的突兀感 */
+    }
+    html[data-theme="dark"] .post-card.lift:hover .post-card-link {
+        box-shadow: 0 16px 40px rgba(0, 0, 0, .45), 0 3px 10px rgba(0, 0, 0, .3);
+        box-shadow: var(--panel-shadow-hover);
+    }
+    .post-card-link:hover::after {
+        transform: translateX(320%) skewX(-18deg); /* 扫光划过 */
+    }
+    .post-card-link:hover .post-card-title {
+        color: #0a84ff;
+        color: var(--primary);
+    }
+    .post-card-link:hover .card-arrow {
+        transform: translateX(4px);
+    }
+    .nav-link:hover,
+    .widget-list a:hover,
+    .archive-title:hover,
+    .comment-foot a:hover,
+    .post-meta a:hover,
+    .near-item a:hover {
+        color: #0a84ff;
+        color: var(--primary);
+    }
+    .icon-btn:hover {
+        background: #ffffff;
+        background: var(--glass-bg);
+    }
+    .icon-btn:active {
+        transform: scale(.92);
+    }
+    .btn:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(10, 132, 255, .38);
+    }
+    .chip:hover,
+    .tag-chip:hover {
+        color: #0a84ff;
+        color: var(--primary);
+        border-color: #0a84ff;
+        border-color: var(--primary);
+        transform: translateY(-2px);
+    }
+    .page-navigator a:hover {
+        color: #0a84ff;
+        color: var(--primary);
+        border-color: #0a84ff;
+        border-color: var(--primary);
+        transform: translateY(-2px);
+    }
+    .dd-item:hover {
+        background: #ffffff;
+        background: var(--glass-bg);
+    }
+    .post-tags a:hover {
+        color: #0a84ff;
+        color: var(--primary);
+    }
+    .profile-close:hover {
+        color: #1d1d1f;
+        color: var(--text);
+        background: #ffffff;
+        background: var(--glass-bg);
+    }
+    /* 标题栏下拉：鼠标悬停自动展开（触屏仍走点击切换） */
+    .tb-dd:hover .tb-dd-menu {
+        display: block;
+        animation: mac-dd-pop .24s cubic-bezier(.2, .9, .3, 1.2) both;
+    }
+    .tb-dd:hover .dd-chevron {
+        transform: rotate(180deg);
+    }
+}
+
+/* ============================================================================
+ * 15. 减少动画（WCAG 无障碍）
+ * ----------------------------------------------------------------------------
+ * 两条路径，均全局删除 transition / animation：
+ *  1) 系统级：prefers-reduced-motion: reduce —— 浏览器自动匹配，无需 JS；
+ *  2) 手动级：html.no-motion —— 由设置抽屉开关写入（main.js），
+ *     默认尊重系统设置，可强制开/关，状态记忆在 localStorage。
+ * ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+    html, body {
+        scroll-behavior: auto;
+    }
+    *, *::before, *::after {
+        animation-duration: .001s !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001s !important;
+        transition-delay: 0s !important;
+    }
+}
+
+html.no-motion,
+html.no-motion body {
+    scroll-behavior: auto;
+}
+html.no-motion *,
+html.no-motion *::before,
+html.no-motion *::after {
+    animation: none !important;
+    transition: none !important;
+}
+/* 滚动浮现元素：减少动画时无条件直接显示（配合 main.js 同步添加 is-visible） */
+html.no-motion .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+/* ============================================================================
+ * 16. 【玻璃效果控制】html.no-glass 总开关
+ * ----------------------------------------------------------------------------
+ * 由 main.js（右下角水滴按钮 / 抽屉开关）向 <html> 写入 no-glass 类：
+ *  1) 将 --glass-bg / --glass-bg-strong 强制改为纯色（白色 / 深灰）；
+ *  2) 用 !important 彻底移除所有 backdrop-filter 与半透明背景。
+ * ============================================================================ */
+html.no-glass {
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #f7f7fa;
+}
+html.no-glass[data-theme="dark"] {
+    --glass-bg: #2a2a2c;
+    --glass-bg-strong: #333336;
+}
+html.no-glass .glass,
+html.no-glass .mac-window,
+html.no-glass .fab,
+html.no-glass .drawer,
+html.no-glass .window-status,
+html.no-glass .profile-fixed {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: #ffffff !important;
+    background: var(--glass-bg) !important;
+}
+html.no-glass[data-theme="dark"] .glass,
+html.no-glass[data-theme="dark"] .mac-window,
+html.no-glass[data-theme="dark"] .fab,
+html.no-glass[data-theme="dark"] .drawer,
+html.no-glass[data-theme="dark"] .window-status,
+html.no-glass[data-theme="dark"] .profile-fixed {
+    background: #2a2a2c !important;
+    background: var(--glass-bg) !important;
+}
+/* 标题栏单独使用 strong 色：与导航面板（nav-links）保持一致，
+ * 避免深色 + 关闭玻璃时出现“标题栏左深右浅”的两色拼接 */
+html.no-glass .titlebar {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: #f7f7fa !important;
+    background: var(--glass-bg-strong) !important;
+}
+html.no-glass[data-theme="dark"] .titlebar {
+    background: #333336 !important;
+    background: var(--glass-bg-strong) !important;
+}
+
+/* ============================================================================
+ * 17. 【低版本兼容】@supports 毛玻璃增强
+ * ----------------------------------------------------------------------------
+ * 只有支持 backdrop-filter 的现代浏览器才会进入此块：
+ * 半透明 rgba 变量 + blur + saturate，透过玻璃看到背后壁纸与内容。
+ * IE11 不支持 @supports（整块跳过）、Chrome 40 条件为假（同样跳过）。
+ * ============================================================================ */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root {
+        --glass-bg: rgba(255, 255, 255, .66);
+        --glass-bg-strong: rgba(255, 255, 255, .85);
+        --glass-border: rgba(255, 255, 255, .55);
+        --glass-blur: 20px;
+        --glass-saturate: 175%;
+    }
+    html[data-theme="dark"] {
+        --glass-bg: rgba(36, 36, 38, .62);
+        --glass-bg-strong: rgba(48, 48, 50, .84);
+        --glass-border: rgba(255, 255, 255, .16);
+    }
+
+    /* 实时模糊只保留在「背景是未模糊内容」的表面：
+     * 窗口（背后是原始壁纸）、抽屉/下拉/移动菜单（浮在正文上）、
+     * 简介卡片与悬浮按钮（浮在壁纸上）。标题栏/状态栏/窗口内面板
+     * 的背后是已模糊的窗口背景，二次模糊无视觉增益且按帧重采样，
+     * 是毛玻璃下滚动掉帧的主因，故不参与。 */
+    .mac-window,
+    .fab,
+    .drawer,
+    .profile-fixed,
+    .glass {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    }
+    html:not(.no-glass) .tb-dd-menu,
+    html:not(.no-glass) .nav-links {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    }
+
+    /* 玻璃开启时标题栏顶部高光（玻璃质感） */
+    .titlebar {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35);
+    }
+    html[data-theme="dark"] .titlebar {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
+    }
+
+    /* ============================================================
+     * 【更逼真的玻璃】阴影变量重定义：
+     * 所有使用 var(--panel-shadow / --window-shadow / --glass-inset)
+     * 的表面自动获得「镜面高光 + 内圈折射 + 更深投影」；
+     * html.no-glass 时整体回退为朴素阴影（见下方重定义）。
+     * ============================================================ */
+    :root {
+        --panel-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), inset 0 0 0 1px rgba(255, 255, 255, .10), 0 10px 28px rgba(20, 30, 60, .09);
+        --panel-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, .6), inset 0 0 0 1px rgba(255, 255, 255, .12), 0 18px 44px rgba(20, 30, 60, .17), 0 4px 12px rgba(20, 30, 60, .08);
+        --window-shadow: 0 34px 80px -16px rgba(20, 30, 60, .34), 0 12px 28px rgba(20, 30, 60, .14), inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 0 0 1px rgba(255, 255, 255, .12);
+        --glass-inset: inset 0 1px 0 rgba(255, 255, 255, .55), inset 0 0 0 1px rgba(255, 255, 255, .10);
+    }
+    html[data-theme="dark"] {
+        --panel-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 0 0 1px rgba(255, 255, 255, .06), 0 10px 28px rgba(0, 0, 0, .3);
+        --panel-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 0 0 1px rgba(255, 255, 255, .08), 0 18px 44px rgba(0, 0, 0, .5), 0 4px 12px rgba(0, 0, 0, .32);
+        --window-shadow: 0 34px 80px -16px rgba(0, 0, 0, .6), 0 12px 28px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 0 0 1px rgba(255, 255, 255, .05);
+        --glass-inset: inset 0 1px 0 rgba(255, 255, 255, .14), inset 0 0 0 1px rgba(255, 255, 255, .06);
+    }
+    /* 关闭玻璃：阴影 / 内圈高光整体回退朴素值 */
+    html.no-glass {
+        --panel-shadow: 0 8px 24px rgba(20, 30, 60, .07);
+        --panel-shadow-hover: 0 16px 40px rgba(20, 30, 60, .14), 0 3px 10px rgba(20, 30, 60, .08);
+        --window-shadow: 0 18px 40px rgba(20, 30, 60, .18), 0 2px 8px rgba(20, 30, 60, .10);
+        --glass-inset: 0 0 0 0 rgba(0, 0, 0, 0);
+    }
+    html.no-glass[data-theme="dark"] {
+        --panel-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+        --panel-shadow-hover: 0 16px 40px rgba(0, 0, 0, .45), 0 3px 10px rgba(0, 0, 0, .3);
+        --window-shadow: 0 18px 44px rgba(0, 0, 0, .50), 0 2px 8px rgba(0, 0, 0, .35);
+        --glass-inset: 0 0 0 0 rgba(0, 0, 0, 0);
+    }
+
+    /* 面板斜向光带：模拟玻璃折射（沿左上角斜射的高光）；
+     * 背景渐变静态绘制一次即可，不参与模糊采样，开销可忽略 */
+    html:not(.no-glass) .glass-panel:not(.profile-fixed) {
+        background-image:
+            linear-gradient(115deg, rgba(255, 255, 255, .38) 0%, rgba(255, 255, 255, .05) 30%, rgba(255, 255, 255, 0) 48%),
+            linear-gradient(295deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, 0) 28%);
+    }
+    html:not(.no-glass)[data-theme="dark"] .glass-panel:not(.profile-fixed) {
+        background-image:
+            linear-gradient(115deg, rgba(255, 255, 255, .10) 0%, rgba(255, 255, 255, .02) 30%, rgba(255, 255, 255, 0) 48%),
+            linear-gradient(295deg, rgba(255, 255, 255, .04) 0%, rgba(255, 255, 255, 0) 28%);
+    }
+
+    /* 磨砂颗粒：SVG feTurbulence 噪声平铺（内置 data URI，零外部请求）。
+     * 只铺在窗口 / 抽屉 / 悬浮按钮三个顶层表面：窗口级噪声已均匀覆盖
+     * 其内部所有面板，无需给每个玻璃面板单独叠加一层。 */
+    html:not(.no-glass) .mac-window::after,
+    html:not(.no-glass) .drawer::before,
+    html:not(.no-glass) .fab::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        background-size: 180px 180px;
+        opacity: .045;
+    }
+    html:not(.no-glass)[data-theme="dark"] .mac-window::after,
+    html:not(.no-glass)[data-theme="dark"] .drawer::before,
+    html:not(.no-glass)[data-theme="dark"] .fab::before {
+        opacity: .06;
+    }
+
+    /* 抽屉遮罩带磨砂模糊：打开设置面板时背后的界面被柔化虚化 */
+    .drawer-backdrop {
+        -webkit-backdrop-filter: blur(8px) saturate(160%);
+        backdrop-filter: blur(8px) saturate(160%);
+        background: rgba(0, 0, 0, .24);
+    }
+    html[data-theme="dark"] .drawer-backdrop {
+        background: rgba(0, 0, 0, .42);
+    }
+}
+
+/* ============================================================================
+ * 18. 【低版本兼容】深色模式字面量兜底
+ * ----------------------------------------------------------------------------
+ * IE11 / Chrome 40 不支持 CSS 变量：var(--text) 等声明整条作废，
+ * 但 data-theme 属性选择器它们认识。本组规则用字面量再次声明深色配色。
+ * 注意：每条规则都重复一次 var() 声明，供现代浏览器沿用变量值。
+ * ============================================================================ */
+html[data-theme="dark"] .titlebar,
+html[data-theme="dark"] .drawer,
+html[data-theme="dark"] .fab,
+html[data-theme="dark"] .window-status,
+html[data-theme="dark"] .profile-fixed,
+html[data-theme="dark"] .nav-links {
+    background: #333336;
+    background: var(--glass-bg-strong);
+}
+html[data-theme="dark"] .mac-window,
+html[data-theme="dark"] .segmented {
+    background: #2a2a2c;
+    background: var(--glass-bg);
+}
+html[data-theme="dark"] .search-input,
+html[data-theme="dark"] input.text,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .glass-panel,
+html[data-theme="dark"] .post-card-link {
+    background: #333336;
+    background: var(--glass-bg-strong);
+}
+html[data-theme="dark"] .nav-link,
+html[data-theme="dark"] .brand-name,
+html[data-theme="dark"] .icon-btn,
+html[data-theme="dark"] .widget-list a,
+html[data-theme="dark"] .archive-title,
+html[data-theme="dark"] .comment-author,
+html[data-theme="dark"] .near-item a,
+html[data-theme="dark"] .btn-ghost,
+html[data-theme="dark"] .section-head h2,
+html[data-theme="dark"] .post-card-title,
+html[data-theme="dark"] .post-title,
+html[data-theme="dark"] .profile-name,
+html[data-theme="dark"] .about-name,
+html[data-theme="dark"] .dd-item {
+    color: #f5f5f7;
+    color: var(--text);
+}
+html[data-theme="dark"] .post-content,
+html[data-theme="dark"] .comment-content,
+html[data-theme="dark"] .setting-name,
+html[data-theme="dark"] .respond-title,
+html[data-theme="dark"] .titlebar-title {
+    color: #f5f5f7;
+    color: var(--text);
+}
+html[data-theme="dark"] .post-meta,
+html[data-theme="dark"] .post-meta a,
+html[data-theme="dark"] .setting-desc,
+html[data-theme="dark"] .respond-field label,
+html[data-theme="dark"] .window-status,
+html[data-theme="dark"] .empty-state,
+html[data-theme="dark"] .about-intro,
+html[data-theme="dark"] .profile-intro,
+html[data-theme="dark"] .post-card-excerpt {
+    color: #a1a1a6;
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .search-icon,
+html[data-theme="dark"] .widget-list time,
+html[data-theme="dark"] .archive-date,
+html[data-theme="dark"] .archive-meta,
+html[data-theme="dark"] .comment-time,
+html[data-theme="dark"] .comment-foot a,
+html[data-theme="dark"] .respond-tip,
+html[data-theme="dark"] .respond-closed,
+html[data-theme="dark"] .no-tags,
+html[data-theme="dark"] .near-item,
+html[data-theme="dark"] .meta-time,
+html[data-theme="dark"] .post-card-foot,
+html[data-theme="dark"] .section-head span {
+    color: #6e6e73;
+    color: var(--text-tertiary);
+}
+html[data-theme="dark"] .switch .track {
+    background: #48484a;
+}
+html[data-theme="dark"] .post-content blockquote,
+html[data-theme="dark"] .post-content th {
+    background: #333336;
+    background: var(--glass-bg-strong);
+    color: #a1a1a6;
+    color: var(--text-secondary);
+}
+html[data-theme="dark"] .chip,
+html[data-theme="dark"] .tag-chip,
+html[data-theme="dark"] .post-tags a {
+    background: #2a2a2c;
+    background: var(--glass-bg);
+    color: #a1a1a6;
+    color: var(--text-secondary);
+}
+
+/* ============================================================================
+ * 19. 响应式增强（移动优先：基础样式即 <768px 手机布局）
+ * ============================================================================ */
+
+/* ---------- 平板 ≥768px ---------- */
+@media (min-width: 768px) {
+    /* 窗口四边等距 20px（与手机版 8px 同理，底部与顶部对称） */
+    .mac-window {
+        top: 20px;
+        right: 20px;
+        bottom: 20px;
+        left: 20px;
+        border-radius: 16px;
+    }
+    /* 桌面端：悬浮按钮更深入窗口内侧（20px 边距 + 14px），远离窗口边框 */
+    .fab {
+        right: 34px;
+    }
+    .titlebar.toolbar {
+        height: 56px;
+        padding: 0 14px;
+    }
+    .traffic-light {
+        width: 13px;
+        height: 13px;
+    }
+    .traffic-light + .traffic-light {
+        margin-left: 8px;
+    }
+    .traffic-light::before {
+        font-size: 9px;
+    }
+    .tb-icon {
+        width: 18px;
+        height: 18px;
+        font-size: 11px;
+        line-height: 18px;
+    }
+    .content-area {
+        padding: 26px 32px 36px;
+    }
+
+    /* 导航链接转为标题栏内联菜单，隐藏汉堡按钮 */
+    .nav-toggle {
+        display: none;
+    }
+    .nav-links {
+        position: static;
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        max-height: none;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        overflow: visible;
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        transition: none;
+    }
+    /* 手机端汉堡菜单展开时把视口拉宽为桌面布局（或旋转屏幕），
+     * html.nav-open 的限高与 overflow-y:auto 优先级高于上面的恢复规则，
+     * 会让标题栏出现滚轮条——此处以同等特异性在后置覆盖清除 */
+    html.nav-open .nav-links {
+        max-height: none;
+        overflow: visible;
+    }
+    .tb-dd {
+        display: block; /* 分类 / 归档下拉仅在桌面端标题栏显示 */
+    }
+    .nav-link {
+        display: inline-flex;
+        align-items: center;
+        height: 36px;
+        min-height: 36px;
+        padding: 0 12px;
+        font-size: 14px;
+    }
+    .nav-modules {
+        display: none; /* 小部件在桌面回到固定侧边栏 */
+    }
+    .nav-search {
+        margin-left: 14px;
+    }
+    .nav-search .search-input {
+        width: 170px;
+    }
+}
+
+/* ---------- 桌面 ≥1024px ---------- */
+@media (min-width: 1024px) {
+    /* 固定侧边栏显示；正文面板与侧边栏各自滚动，小部件固定不动 */
+    .sidebar {
+        display: block;
+    }
+    .content-area {
+        padding: 30px 48px 40px; /* 右侧 48px：滚动条(10px) + 与侧边栏的呼吸距离 */
+        margin-right: 26px;      /* 滚动条整体左移，与侧边栏拉开距离 */
+    }
+    .sidebar {
+        padding: 30px 28px 34px 0;
+    }
+    .post-content {
+        font-size: 16px;
+    }
+    /* 个人简介卡片仅在桌面展示（避免遮挡移动端内容） */
+    .profile-fixed {
+        display: block;
+    }
+    /* 手机版主栏头部的站点简介在桌面隐藏（桌面端简介在固定侧边栏） */
+    .mobile-intro {
+        display: none;
+    }
+}
